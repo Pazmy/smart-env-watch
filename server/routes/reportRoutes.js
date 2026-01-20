@@ -11,4 +11,7 @@ const upload = multer({ storage: storage });
 // POST /api/reports - Create a new report with image
 router.post('/', upload.single('image'), reportController.createReport);
 
+// GET /api/reports/:ticketId - Check status by Ticket ID
+router.get('/:ticketId', reportController.getReportByTicketId);
+
 module.exports = router;

@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Camera, MapPin, Upload } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Camera, MapPin, Upload, AlertCircle } from 'lucide-react';
 
 const Home = () => {
+  const navigate = useNavigate();
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState('');
   const [location, setLocation] = useState(null);
@@ -39,14 +42,40 @@ const Home = () => {
     }
   };
 
-  const handleSubmit = () => {
-    console.log({
-      image,
-      preview,
-      location,
-      description,
-    });
-    alert('Laporan berhasil dikirim! (Cek Console)');
+  const handleSubmit = async () => {
+    if (!image || !location) {
+      alert('Mohon lengkapi foto dan lokasi!');
+      return;
+    }
+
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('image', image);
+    formData.append('latitude', location.lat);
+    formData.append('longitude', location.lng);
+    formData.append('description', description);
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/reports', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Navigate to Success page with response data
+      navigate('/success', {
+        state: {
+          ticketId: response.data.ticketId,
+          aiResult: response.data.aiResult,
+          imageUrl: response.data.imageUrl
+        }
+      });
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      alert('Gagal mengirim laporan. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,9 +164,17 @@ const Home = () => {
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all transform active:scale-95"
+            disabled={loading}
+            className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all transform active:scale-95 flex justify-center items-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            Kirim Laporan
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                Mengirim...
+              </>
+            ) : (
+              'Kirim Laporan'
+            )}
           </button>
         </div>
       </main>
