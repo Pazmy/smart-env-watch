@@ -5,6 +5,7 @@ const cors = require('cors');
 const cloudinary = require('cloudinary').v2;
 
 const reportRoutes = require('./routes/reportRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -32,6 +33,7 @@ const connectDB = async () => {
 
 // Routes
 app.use('/api/reports', reportRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
     res.send('Smart Env Watch API is running...');

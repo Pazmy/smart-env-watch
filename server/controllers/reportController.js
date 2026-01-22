@@ -185,3 +185,39 @@ exports.getReportByTicketId = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
+
+exports.getAllReports = async (req, res) => {
+  try {
+    const reports = await Report.find().sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: reports });
+  } catch (error) {
+    console.error('Get All Reports Error:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
+
+exports.updateReportStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['Pending', 'In Progress', 'Resolved', 'Rejected'].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Invalid status value' });
+    }
+
+    const report = await Report.findByIdAndUpdate(
+        id, 
+        { status }, 
+        { new: true } 
+    );
+
+    if (!report) {
+      return res.status(404).json({ success: false, message: 'Report not found' });
+    }
+
+    res.status(200).json({ success: true, data: report });
+  } catch (error) {
+    console.error('Update Report Status Error:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
