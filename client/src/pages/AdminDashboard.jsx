@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { MapPin } from 'lucide-react';
 
 const AdminDashboard = () => {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const [selectedImage, setSelectedImage] = useState(null);
+
+    const openImageModal = (url) => setSelectedImage(url);
+    const closeImageModal = () => setSelectedImage(null);
 
     // Valid statuses match backend validation
     const STATUS_OPTIONS = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
@@ -129,7 +134,10 @@ const AdminDashboard = () => {
                             {reports.map((report) => (
                                 <tr key={report._id} className="hover:bg-slate-50 transition">
                                     <td className="px-6 py-4">
-                                        <div className="w-16 h-16 rounded overflow-hidden border border-slate-200 bg-slate-100">
+                                        <div 
+                                            className="w-16 h-16 rounded overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer hover:opacity-80 transition-opacity"
+                                            onClick={() => openImageModal(report.imageUrl)}
+                                        >
                                             <img 
                                                 src={report.imageUrl} 
                                                 alt="Evidence" 
@@ -144,9 +152,20 @@ const AdminDashboard = () => {
                                         <div className="text-sm font-medium text-slate-800 truncate" title={report.description}>
                                             {report.description || 'No description'}
                                         </div>
-                                        <div className="text-xs text-slate-400 mt-1">
+                                        {/* <div className="text-xs text-slate-400 mt-1">
                                             {report.location?.lat?.toFixed(5)}, {report.location?.lng?.toFixed(5)}
-                                        </div>
+                                        </div> */}
+                                        <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                                        <MapPin size={14} /> 
+                                        <a 
+                                        href={`https://www.google.com/maps?q=${report.location.lat},${report.location.lng}`} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="text-blue-600 hover:underline hover:text-blue-800"
+                                        >
+                                        Lihat di Peta
+                                        </a>
+                                    </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700`}>
@@ -188,6 +207,28 @@ const AdminDashboard = () => {
                     </table>
                 </div>
             </main>
+
+            {/* Image Modal */}
+            {selectedImage && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center"
+                    onClick={closeImageModal}
+                >
+                    <div className="relative max-w-4xl max-h-screen p-4">
+                        <img 
+                            src={selectedImage} 
+                            alt="Evidence Fullscreen" 
+                            className="max-h-[90vh] max-w-[90vw] object-contain rounded shadow-2xl"
+                        />
+                        <button 
+                            className="absolute top-6 right-6 text-white text-2xl font-bold bg-black/50 hover:bg-black/70 rounded-full w-10 h-10 flex items-center justify-center transition"
+                            onClick={closeImageModal}
+                        >
+                            &times;
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
