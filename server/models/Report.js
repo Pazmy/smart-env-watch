@@ -24,6 +24,11 @@ const reportSchema = new mongoose.Schema({
     enum: ['Pending', 'In Progress', 'Resolved', 'Rejected'],
     default: 'Pending',
   },
+  category: {
+    type: String,
+    enum: ['Sampah', 'Banjir', 'Jalan Rusak', 'Pohon Tumbang', 'Butuh Verifikasi'],
+    default: 'Butuh Verifikasi',
+  },
   aiAnalysis: {
     detected: { type: Boolean, default: false },
     class: { type: String },

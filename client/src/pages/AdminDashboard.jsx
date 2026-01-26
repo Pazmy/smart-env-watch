@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { MapPin } from 'lucide-react';
+import { MapPin, Menu } from 'lucide-react';
 
 const AdminDashboard = () => {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+
     const [selectedImage, setSelectedImage] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const openImageModal = (url) => setSelectedImage(url);
     const closeImageModal = () => setSelectedImage(null);
 
     // Valid statuses match backend validation
     const STATUS_OPTIONS = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
+    const CATEGORY_OPTIONS = ['Sampah', 'Banjir', 'Jalan Rusak', 'Pohon Tumbang', 'Butuh Verifikasi'];
 
     // Auth Guard & Fetch Data
     useEffect(() => {
@@ -70,6 +73,31 @@ const AdminDashboard = () => {
             alert('Error updating status');
         }
     };
+    
+    // Add updateCategory
+    const updateCategory = async (id, newCategory) => {
+        try {
+            // Optimistic Update
+            setReports(prev => prev.map(rep => 
+                rep._id === id ? { ...rep, category: newCategory } : rep
+            ));
+
+            const response = await axios.patch(`http://localhost:5000/api/reports/${id}/status`, {
+                category: newCategory
+            });
+
+            if (response.data.success) {
+                console.log('Category updated successfully');
+            } else {
+                fetchReports(); 
+                alert('Failed to update category');
+            }
+        } catch (error) {
+            console.error('Update category error:', error);
+            fetchReports(); // Revert
+            alert('Error updating category');
+        }
+    };
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -86,7 +114,11 @@ const AdminDashboard = () => {
     return (
         <div className="flex h-screen bg-slate-100 font-sans">
             {/* Sidebar */}
-            <aside className="w-64 bg-slate-900 text-white flex flex-col items-center py-6 shadow-2xl">
+            <aside 
+                className={`bg-slate-900 text-white flex flex-col items-center py-6 shadow-2xl transition-all duration-300 ${
+                    isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full overflow-hidden opacity-0'
+                }`}
+            >
                 <div className="text-2xl font-bold mb-10 tracking-wider text-emerald-400">
                     ENV ADMIN
                 </div>
@@ -107,11 +139,19 @@ const AdminDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto p-8">
+            <main className="flex-1 overflow-y-auto p-8 transition-all duration-300">
                 <header className="mb-8 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold text-slate-800">Dashboard Overview</h1>
-                        <p className="text-slate-500">Manage environmental reports and issues.</p>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="p-2 bg-white rounded shadow hover:bg-slate-50 text-slate-700 transition"
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-800">Dashboard Overview</h1>
+                            <p className="text-slate-500">Manage environmental reports and issues.</p>
+                        </div>
                     </div>
                     <div className="bg-white px-4 py-2 rounded shadow text-slate-600">
                         Total Reports: <strong>{reports.length}</strong>
@@ -119,13 +159,15 @@ const AdminDashboard = () => {
                 </header>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 text-slate-600 uppercase text-xs font-semibold">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-full text-left border-collapse">
+                            <thead className="bg-slate-50 text-slate-600 uppercase text-xs font-semibold whitespace-nowrap">
                             <tr>
                                 <th className="px-6 py-4 border-b">Evidence</th>
                                 <th className="px-6 py-4 border-b">Ticket ID</th>
                                 <th className="px-6 py-4 border-b">Location & Desc</th>
                                 <th className="px-6 py-4 border-b">AI Analysis</th>
+                                <th className="px-6 py-4 border-b">Category</th>
                                 <th className="px-6 py-4 border-b">Date</th>
                                 <th className="px-6 py-4 border-b">Status</th>
                             </tr>
@@ -152,9 +194,6 @@ const AdminDashboard = () => {
                                         <div className="text-sm font-medium text-slate-800 truncate" title={report.description}>
                                             {report.description || 'No description'}
                                         </div>
-                                        {/* <div className="text-xs text-slate-400 mt-1">
-                                            {report.location?.lat?.toFixed(5)}, {report.location?.lng?.toFixed(5)}
-                                        </div> */}
                                         <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                                         <MapPin size={14} /> 
                                         <a 
@@ -174,6 +213,19 @@ const AdminDashboard = () => {
                                                 ({(report.aiAnalysis?.confidence * 100).toFixed(0)}%)
                                             </span>
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <select
+                                            value={report.category || 'Butuh Verifikasi'}
+                                            onChange={(e) => updateCategory(report._id, e.target.value)}
+                                            className="px-3 py-1 rounded text-sm font-semibold border border-slate-300 cursor-pointer focus:ring-2 focus:ring-slate-300 bg-white text-slate-700"
+                                        >
+                                            {CATEGORY_OPTIONS.map(opt => (
+                                                <option key={opt} value={opt}>
+                                                    {opt}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-slate-500">
                                         {new Date(report.createdAt).toLocaleDateString()} <br />
@@ -204,7 +256,8 @@ const AdminDashboard = () => {
                                 </tr>
                             )}
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
                 </div>
             </main>
 

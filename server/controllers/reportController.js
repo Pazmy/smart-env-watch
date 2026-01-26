@@ -3,14 +3,12 @@ const cloudinary = require('cloudinary').v2;
 const axios = require('axios');
 const stream = require('stream');
 
-// Konfigurasi Cloudinary (Pastikan ini terpanggil, meski kosong)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Helper: Upload ke Cloudinary
 const uploadToCloudinary = (buffer) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -41,9 +39,7 @@ exports.createReport = async (req, res) => {
     // STEP 2: CLOUDINARY UPLOAD (DENGAN MOCK)
     // ==========================================
     
-    // Cek apakah ada API KEY di .env?
     if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_CLOUD_NAME) {
-        // JIKA ADA: Upload beneran
         try {
             console.log('Uploading to Cloudinary...');
             const result = await uploadToCloudinary(req.file.buffer);
@@ -53,9 +49,7 @@ exports.createReport = async (req, res) => {
             return res.status(500).json({ success: false, message: 'Image upload failed' });
         }
     } else {
-        // JIKA TIDAK ADA: Pakai URL Dummy (Mock Mode)
         console.log('⚠️ Cloudinary Credentials missing. Using Mock Image URL.');
-        // Gunakan placeholder image service atau static url
         imageUrl = 'https://placehold.co/600x400/059669/ffffff?text=Uploaded+Image+(Mock)';
     }
 
@@ -69,15 +63,13 @@ exports.createReport = async (req, res) => {
       rawResult: {}
     };
 
-    const ROBOFLOW_API_KEY = process.env.ROBOFLOW_API_KEY;
+    const ROBOFLOW_API_KEY = process.env.PRIVATE_KEY || process.env.ROBOFLOW_API_KEY;
     const ROBOFLOW_MODEL_ID = process.env.ROBOFLOW_MODEL_ID || 'garbage-classification-3'; 
     const ROBOFLOW_VERSION = process.env.ROBOFLOW_VERSION || '1';
 
     if (ROBOFLOW_API_KEY) {
       try {
-        const roboflowUrl = `https://detect.roboflow.com/${ROBOFLOW_MODEL_ID}/${ROBOFLOW_VERSION}?api_key=${ROBOFLOW_API_KEY}`;
-        
-        // Kita kirim URL gambar (baik itu asli dari Cloudinary atau dummy)
+        const roboflowUrl = `${process.env.ROBOFLOW_BASEURL}/${ROBOFLOW_MODEL_ID}/${ROBOFLOW_VERSION}?api_key=${ROBOFLOW_API_KEY}`;
         const response = await axios.post(roboflowUrl, null, {
             params: { image: imageUrl }
         });
@@ -103,8 +95,27 @@ exports.createReport = async (req, res) => {
       // Mock data AI jika tidak ada API Key
       console.log('⚠️ Roboflow API Key missing, using mock AI result.');
       aiResult.detected = true;
-      aiResult.class = 'Tumpukan Sampah (Mock)'; // Contoh hasil dummy
+      aiResult.class = 'garbage'; // Contoh hasil dummy (was 'Tumpukan Sampah (Mock)') - changed to match logic
       aiResult.confidence = 0.88;
+    }
+
+    // ==========================================
+    // STEP 3.5: HYBRID WORKFLOW LOGIC
+    // ==========================================
+    let category = 'Butuh Verifikasi';
+    let aiStatus = false;
+
+    // Pastikan classname sesuai dengan yang dilatih (lowercase verify)
+    const detectedClass = aiResult.class ? aiResult.class.toLowerCase() : '';
+    const GARBAGE_CLASSES = ['garbage', 'trash', 'plastic', 'sampah']; // Tambahkan label lain jika ada
+
+    if (
+        aiResult.detected && 
+        GARBAGE_CLASSES.some(cls => detectedClass.includes(cls)) && 
+        aiResult.confidence > 0.4
+    ) {
+        category = 'Sampah';
+        aiStatus = true;
     }
 
     // ==========================================
@@ -120,8 +131,9 @@ exports.createReport = async (req, res) => {
         lng: parseFloat(lng),
       },
       description,
-      aiAnalysis: aiResult, // Pastikan field ini sesuai dengan Schema kamu (misal: aiResult atau aiAnalysis?)
-      status: 'Pending'
+      aiAnalysis: aiResult, 
+      status: 'Pending',
+      category: category
     });
 
     await newReport.save();
@@ -134,7 +146,8 @@ exports.createReport = async (req, res) => {
       data: newReport,
       // Kirim balik url dan hasil AI biar bisa ditampilkan di Frontend Success Page
       imageUrl: imageUrl, 
-      aiResult: aiResult 
+      aiResult: aiResult,
+      category: category
     });
 
   } catch (error) {
@@ -199,16 +212,25 @@ exports.getAllReports = async (req, res) => {
 exports.updateReportStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, category } = req.body;
 
-    if (!['Pending', 'In Progress', 'Resolved', 'Rejected'].includes(status)) {
-        return res.status(400).json({ success: false, message: 'Invalid status value' });
+    let updateData = {};
+    if (status) {
+        if (!['Pending', 'In Progress', 'Resolved', 'Rejected'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Invalid status value' });
+        }
+        updateData.status = status;
+    }
+
+    if (category) {
+        // Validasi category jika perlu, atau percayakan enum Mongoose
+        updateData.category = category;
     }
 
     const report = await Report.findByIdAndUpdate(
         id, 
-        { status }, 
-        { new: true } 
+        updateData, 
+        { new: true, runValidators: true } // runValidators penting untuk check enum
     );
 
     if (!report) {
