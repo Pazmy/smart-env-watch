@@ -180,7 +180,7 @@ const StatusCheck = () => {
                          <div className={`w-3 h-3 rounded-full ${report.aiAnalysis.detected ? 'bg-amber-500' : 'bg-gray-300'}`}></div>
                          <span className="text-sm font-medium text-gray-700">
                              {report.aiAnalysis.detected 
-                                ? `Terdeteksi: ${report.aiAnalysis.class} (${Math.round(report.aiAnalysis.confidence * 100)}%)` 
+                                ? `Terdeteksi: ${report.category} (${Math.round(report.aiAnalysis.confidence * 100)}%)` 
                                 : 'Tidak ada objek signifikan terdeteksi'}
                          </span>
                      </div>
